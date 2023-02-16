@@ -24,7 +24,7 @@ check-format:
 
 starknet-compile:
 	mkdir -p out && \
-	  cargo run --bin starknet-compile -- ${dir} out/$(shell basename $(dir)).json
+	  cargo run --bin starknet-compile -- ${dir} out/$(shell basename $(dir)).json --allowed-libfuncs-list-name experimental_v0.1.0
 
 language-server:
 	cargo build --bin cairo-language-server --release
