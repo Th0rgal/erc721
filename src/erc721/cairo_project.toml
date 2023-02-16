@@ -1,2 +1,2 @@
 [crate_roots]
-erc20 = "."
+erc721 = "."
