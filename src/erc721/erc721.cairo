@@ -5,13 +5,18 @@ mod ERC721 {
     use zeroable::Zeroable;
     use starknet::get_caller_address;
     use starknet::ContractAddressZeroable;
+    use starknet::ContractAddressIntoFelt;
+    use starknet::FeltTryIntoContractAddress;
+    use traits::TryInto;
+    use traits::Into;
+    use option::OptionTrait;
 
     struct Storage {
         name: felt,
         symbol: felt,
-        owners: LegacyMap::<u256, ContractAddress>,
+        owners: LegacyMap::<u256, felt>,
         balances: LegacyMap::<ContractAddress, u256>,
-        token_approvals: LegacyMap::<u256, ContractAddress>,
+        token_approvals: LegacyMap::<u256, felt>,
         operator_approvals: LegacyMap::<(ContractAddress, ContractAddress), bool>,
     }
 
@@ -54,14 +59,14 @@ mod ERC721 {
     fn owner_of(token_id: u256) -> ContractAddress {
         let owner = owners::read(token_id);
         assert(!owner.is_zero(), 'ERC721: nonexistent token');
-        owner
+        owner.try_into().unwrap()
     }
 
     #[view]
     fn get_approved(token_id: u256) -> ContractAddress {
         let owner = owners::read(token_id);
         assert(!owner.is_zero(), 'ERC721: nonexistent token');
-        token_approvals::read(token_id)
+        token_approvals::read(token_id).try_into().unwrap()
     }
 
     #[view]
@@ -70,7 +75,7 @@ mod ERC721 {
     }
 
     #[view]
-    fn token_uri(token_id: u256) -> Array::<ContractAddress> {
+    fn token_uri(token_id: u256) -> Array::<felt> {
         ArrayTrait::new()
     }
 
@@ -80,10 +85,12 @@ mod ERC721 {
     fn approve(to: ContractAddress, token_id: u256) {
         let caller = get_caller_address();
         let owner = owners::read(token_id);
-        if (caller == owner | operator_approvals::read(
-            (owner, caller, )
+        let owner_as_contract: Option::<ContractAddress> = owner.try_into();
+        if (caller.into() == owner | operator_approvals::read(
+            (owner_as_contract.unwrap(), caller, )
         )) {
-            token_approvals::write(token_id, to);
+            let as_felt: felt = to.into();
+            token_approvals::write(token_id, as_felt);
         } else {
             assert(false, 'ERC721: caller not allowed');
         }
