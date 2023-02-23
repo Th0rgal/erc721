@@ -118,14 +118,16 @@ mod ERC721 {
         _transfer(from, to, token_id);
     }
 
+    const IERC721_RECEIVER_ID: felt = 0x150b7a02;
+    const IACCOUNT_ID: felt = 0xa66bd575;
+
     #[external]
     fn safe_transfer_from(
         from: ContractAddress, to: ContractAddress, token_id: u256, data: Array::<felt>
     ) {
         let caller = get_caller_address();
         assert(is_approved_or_owner(caller, token_id), 'ERC721: not approved');
-        let IERC721_RECEIVER_ID = 0x150b7a02;
-        let IACCOUNT_ID = 0xa66bd575;
+
         if super::IERC165Dispatcher::supports_interface(
             to, IERC721_RECEIVER_ID
         ) {
@@ -135,7 +137,8 @@ mod ERC721 {
             assert(selector == IERC721_RECEIVER_ID, 'ERC721: not ERC721Receiver');
         } else {
             assert(
-                super::IERC165Dispatcher::supports_interface(IACCOUNT_ID), 'ERC721: wrong interface'
+                super::IERC165Dispatcher::supports_interface(to, IACCOUNT_ID),
+                'ERC721: wrong interface'
             );
         }
         _transfer(from, to, token_id);
