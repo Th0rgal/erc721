@@ -1,5 +1,17 @@
 use array::ArrayTrait;
 
+#[abi]
+trait IERC721Receiver {
+    fn on_erc721_received(
+        operator: ContractAddress, from_: ContractAddress, tokenId: u256, data: Array::<felt>
+    ) -> felt;
+}
+
+#[abi]
+trait IERC165 {
+    fn supports_interface(interface_id: felt) -> bool;
+}
+
 #[contract]
 mod ERC721 {
     use zeroable::Zeroable;
@@ -7,15 +19,15 @@ mod ERC721 {
     use starknet::ContractAddressZeroable;
     use starknet::ContractAddressIntoFelt;
     use starknet::FeltTryIntoContractAddress;
-    use traits::TryInto;
     use traits::Into;
+    use traits::TryInto;
+    use starknet::contract_address_try_from_felt;
     use option::OptionTrait;
 
     struct Storage {
         name: felt,
         symbol: felt,
         owners: LegacyMap::<u256, felt>,
-        balances: LegacyMap::<ContractAddress, u256>,
         token_approvals: LegacyMap::<u256, felt>,
         operator_approvals: LegacyMap::<(ContractAddress, ContractAddress), bool>,
     }
@@ -50,12 +62,6 @@ mod ERC721 {
     }
 
     #[view]
-    fn balance_of(account: ContractAddress) -> u256 {
-        assert(!account.is_zero(), 'ERC721: balance query for zero');
-        balances::read(account)
-    }
-
-    #[view]
     fn owner_of(token_id: u256) -> ContractAddress {
         let owner = owners::read(token_id);
         assert(!owner.is_zero(), 'ERC721: nonexistent token');
@@ -85,14 +91,66 @@ mod ERC721 {
     fn approve(to: ContractAddress, token_id: u256) {
         let caller = get_caller_address();
         let owner = owners::read(token_id);
-        let owner_as_contract: Option::<ContractAddress> = owner.try_into();
-        if (caller.into() == owner | operator_approvals::read(
-            (owner_as_contract.unwrap(), caller, )
-        )) {
+        let owner_as_contract: ContractAddress = owner.try_into().unwrap();
+        if is_approved_or_owner(
+            caller, token_id
+        ) {
             let as_felt: felt = to.into();
             token_approvals::write(token_id, as_felt);
+            Approval(owner_as_contract, to, token_id);
         } else {
             assert(false, 'ERC721: caller not allowed');
         }
+    }
+
+
+    #[external]
+    fn set_approval_for_all(operator: ContractAddress, approved: bool) {
+        let caller = get_caller_address();
+        operator_approvals::write((caller, operator), approved);
+        ApprovalForAll(caller, operator, approved);
+    }
+
+    #[external]
+    fn transfer_from(from: ContractAddress, to: ContractAddress, token_id: u256) {
+        let caller = get_caller_address();
+        assert(is_approved_or_owner(caller, token_id), 'ERC721: not approved');
+        _transfer(from, to, token_id);
+    }
+
+    #[external]
+    fn safe_transfer_from(
+        from: ContractAddress, to: ContractAddress, token_id: u256, data: Array::<felt>
+    ) {
+        let caller = get_caller_address();
+        assert(is_approved_or_owner(caller, token_id), 'ERC721: not approved');
+        let IERC721_RECEIVER_ID = 0x150b7a02;
+        let IACCOUNT_ID = 0xa66bd575;
+        if super::IERC165Dispatcher::supports_interface(
+            to, IERC721_RECEIVER_ID
+        ) {
+            let selector = super::IERC721ReceiverDispatcher::on_erc721_received(
+                to, caller, from, token_id, data
+            );
+            assert(selector == IERC721_RECEIVER_ID, 'ERC721: not ERC721Receiver');
+        } else {
+            assert(
+                super::IERC165Dispatcher::supports_interface(IACCOUNT_ID), 'ERC721: wrong interface'
+            );
+        }
+        _transfer(from, to, token_id);
+    }
+
+    // utils
+
+    fn is_approved_or_owner(address: ContractAddress, token_id: u256) -> bool {
+        let owner = owners::read(token_id);
+        let owner_as_contract: ContractAddress = owner.try_into().unwrap();
+        address.into() == owner | operator_approvals::read((owner_as_contract, address, ))
+    }
+
+    fn _transfer(from: ContractAddress, to: ContractAddress, token_id: u256) {
+        owners::write(token_id, to.into());
+        Transfer(from, to, token_id);
     }
 }
