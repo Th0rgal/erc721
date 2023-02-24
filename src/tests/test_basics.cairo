@@ -44,3 +44,34 @@ fn test_approval() {
     ERC721::approve(friend, nft_id);
     ERC721::transfer_from(friend, starknet::contract_address_const::<789>(), nft_id);
 }
+
+
+#[test]
+#[available_gas(2000000)]
+fn test_approval_for_all() {
+    ERC721::constructor('Bored Apes', 'BA');
+    let nft_id: u256 = integer::u256_from_felt(1);
+    ERC721::owners::write(nft_id, 123);
+
+    let me = starknet::contract_address_const::<123>();
+    let friend = starknet::contract_address_const::<456>();
+    starknet_testing::set_caller_address(me);
+    ERC721::set_approval_for_all(friend, true);
+    ERC721::transfer_from(friend, starknet::contract_address_const::<789>(), nft_id);
+}
+
+#[test]
+#[available_gas(2000000)]
+fn test_transfer() {
+    ERC721::constructor('Bored Apes', 'BA');
+    let nft_id: u256 = integer::u256_from_felt(1);
+    ERC721::owners::write(nft_id, 123);
+
+    let me = starknet::contract_address_const::<123>();
+    let friend = starknet::contract_address_const::<456>();
+    starknet_testing::set_caller_address(me);
+    ERC721::transfer_from(me, friend, nft_id);
+
+    let new_owner = ERC721::owners::read(nft_id);
+    assert(new_owner == 456, 'wrong new owner');
+}
