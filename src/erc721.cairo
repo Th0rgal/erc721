@@ -1,17 +1,3 @@
-use array::ArrayTrait;
-
-#[abi]
-trait IERC721Receiver {
-    fn on_erc721_received(
-        operator: ContractAddress, from_: ContractAddress, tokenId: u256, data: Array::<felt>
-    ) -> felt;
-}
-
-#[abi]
-trait IERC165 {
-    fn supports_interface(interface_id: felt) -> bool;
-}
-
 #[contract]
 mod ERC721 {
     use zeroable::Zeroable;
@@ -19,10 +5,13 @@ mod ERC721 {
     use starknet::ContractAddressZeroable;
     use starknet::ContractAddressIntoFelt;
     use starknet::FeltTryIntoContractAddress;
+    use starknet::contract_address_try_from_felt;
     use traits::Into;
     use traits::TryInto;
-    use starknet::contract_address_try_from_felt;
+    use array::ArrayTrait;
     use option::OptionTrait;
+    use erc721::interfaces::IERC721ReceiverDispatcher;
+    use erc721::interfaces::IERC165Dispatcher;
 
     struct Storage {
         name: felt,
@@ -128,17 +117,16 @@ mod ERC721 {
         let caller = get_caller_address();
         assert(is_approved_or_owner(caller, token_id), 'ERC721: not approved');
 
-        if super::IERC165Dispatcher::supports_interface(
+        if IERC165Dispatcher::supports_interface(
             to, IERC721_RECEIVER_ID
         ) {
-            let selector = super::IERC721ReceiverDispatcher::on_erc721_received(
+            let selector = IERC721ReceiverDispatcher::on_erc721_received(
                 to, caller, from, token_id, data
             );
             assert(selector == IERC721_RECEIVER_ID, 'ERC721: not ERC721Receiver');
         } else {
             assert(
-                super::IERC165Dispatcher::supports_interface(to, IACCOUNT_ID),
-                'ERC721: wrong interface'
+                IERC165Dispatcher::supports_interface(to, IACCOUNT_ID), 'ERC721: wrong interface'
             );
         }
         _transfer(from, to, token_id);
