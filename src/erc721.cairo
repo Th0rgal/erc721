@@ -76,6 +76,8 @@ mod ERC721 {
 
     // setters
 
+    // you probably want to add a mint function here
+
     #[external]
     fn approve(to: ContractAddress, token_id: u256) {
         let caller = get_caller_address();
