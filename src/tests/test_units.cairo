@@ -33,7 +33,7 @@ fn test_owner_of() {
 
 #[test]
 #[available_gas(2000000)]
-fn test_approval() {
+fn test_approved() {
     ERC721::constructor('Bored Apes', 'BA');
     let nft_id: u256 = integer::u256_from_felt(1);
     ERC721::owners::write(nft_id, 123);
@@ -45,10 +45,9 @@ fn test_approval() {
     ERC721::transfer_from(friend, starknet::contract_address_const::<789>(), nft_id);
 }
 
-
 #[test]
 #[available_gas(2000000)]
-fn test_approval_for_all() {
+fn test_approved_for_all() {
     ERC721::constructor('Bored Apes', 'BA');
     let nft_id: u256 = integer::u256_from_felt(1);
     ERC721::owners::write(nft_id, 123);
@@ -57,6 +56,22 @@ fn test_approval_for_all() {
     let friend = starknet::contract_address_const::<456>();
     starknet_testing::set_caller_address(me);
     ERC721::set_approval_for_all(friend, true);
+    ERC721::transfer_from(friend, starknet::contract_address_const::<789>(), nft_id);
+}
+
+#[test]
+#[available_gas(2000000)]
+#[should_panic(expected = ('ERC721: caller not allowed', ))]
+fn test_not_approved() {
+    ERC721::constructor('Bored Apes', 'BA');
+    let nft_id: u256 = integer::u256_from_felt(1);
+    ERC721::owners::write(nft_id, 123);
+
+    let me = starknet::contract_address_const::<123>();
+    let friend = starknet::contract_address_const::<456>();
+    // random caller address
+    starknet_testing::set_caller_address(starknet::contract_address_const::<36378278>());
+    ERC721::approve(friend, nft_id);
     ERC721::transfer_from(friend, starknet::contract_address_const::<789>(), nft_id);
 }
 
